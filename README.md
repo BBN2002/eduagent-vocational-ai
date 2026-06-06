@@ -2,9 +2,20 @@
 
 > 面向香港职业教育学生的轻量级 LLM Agent 演示系统，展示 **Agent 编排 · Tool Calling · Planning · Memory** 四大核心能力。
 
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://eduagent-vocational-ai.streamlit.app)
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.32+-red)
 ![License](https://img.shields.io/badge/License-MIT-green)
+
+## 🔗 快速链接
+
+| 链接 | 说明 |
+|------|------|
+| **[🌐 在线演示](https://eduagent-vocational-ai.streamlit.app)** | 浏览器直接打开（Streamlit Cloud） |
+| **[📦 GitHub 仓库](https://github.com/BBN2002/eduagent-vocational-ai)** | 源码与文档 |
+| **[🚀 一键部署](https://share.streamlit.io/deploy?repository=BBN2002/eduagent-vocational-ai&branch=main&mainModule=app.py)** | 部署到你自己的 Streamlit Cloud |
+
+> 首次部署：点击「一键部署」→ 用 GitHub 登录 → App URL 填 `eduagent-vocational-ai` → Deploy（约 1 分钟）。无 API Key 也可运行演示模式。
 
 ---
 
