@@ -1,5 +1,6 @@
 # .env
 .env
+.streamlit/secrets.toml
 任务说明.tex
 __pycache__/
 *.pyc

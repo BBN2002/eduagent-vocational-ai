@@ -13,7 +13,10 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+from dotenv import load_dotenv
 from openai import OpenAI
+
+load_dotenv()  # 本地 .env 加载 API 配置（不会提交到 GitHub）
 
 from memory import SessionMemory, extract_weak_concepts_from_diagnosis
 from prompts import (
@@ -56,23 +59,79 @@ class AgentResponse:
 # ── LLM 客户端 ────────────────────────────────────────────────────────────
 
 
-def create_llm_client() -> tuple[OpenAI | None, str, bool]:
+@dataclass
+class LLMConfig:
+    """LLM 连接配置（支持 UI 输入 / Streamlit Secrets / 环境变量）"""
+
+    api_key: str = ""
+    base_url: str = ""
+    model: str = "gpt-5.4"
+
+
+def normalize_base_url(url: str) -> str:
+    """补全 OpenAI 兼容端点，自动追加 /v1"""
+    url = url.strip().rstrip("/")
+    if not url:
+        return ""
+    if not url.endswith("/v1"):
+        url = f"{url}/v1"
+    return url
+
+
+def resolve_llm_config(overrides: LLMConfig | None = None) -> LLMConfig:
+    """
+    解析 LLM 配置，优先级：UI 传入 > 环境变量 > 默认值。
+    """
+    cfg = LLMConfig(
+        api_key=os.getenv("OPENAI_API_KEY", "").strip(),
+        base_url=normalize_base_url(os.getenv("OPENAI_BASE_URL", "")),
+        model=os.getenv("OPENAI_MODEL", "gpt-5.4").strip() or "gpt-5.4",
+    )
+    if overrides:
+        if overrides.api_key.strip():
+            cfg.api_key = overrides.api_key.strip()
+        if overrides.base_url.strip():
+            cfg.base_url = normalize_base_url(overrides.base_url)
+        if overrides.model.strip():
+            cfg.model = overrides.model.strip()
+    return cfg
+
+
+def create_llm_client(config: LLMConfig | None = None) -> tuple[OpenAI | None, str, bool, LLMConfig]:
     """
     创建 OpenAI 兼容客户端。
-    返回 (client, model_name, is_mock)。
+    返回 (client, model_name, is_mock, resolved_config)。
     无 API Key 时进入 mock 模式。
     """
-    api_key = os.getenv("OPENAI_API_KEY", "").strip()
-    base_url = os.getenv("OPENAI_BASE_URL", "").strip() or None
-    model = os.getenv("OPENAI_MODEL", "gpt-4o").strip()
+    cfg = resolve_llm_config(config)
 
-    if not api_key:
-        return None, model, True
+    if not cfg.api_key:
+        return None, cfg.model, True, cfg
 
-    kwargs: dict[str, Any] = {"api_key": api_key}
-    if base_url:
-        kwargs["base_url"] = base_url
-    return OpenAI(**kwargs), model, False
+    kwargs: dict[str, Any] = {"api_key": cfg.api_key}
+    if cfg.base_url:
+        kwargs["base_url"] = cfg.base_url
+    return OpenAI(**kwargs), cfg.model, False, cfg
+
+
+def test_llm_connection(config: LLMConfig) -> tuple[bool, str]:
+    """测试 API 连接是否正常"""
+    client, model, is_mock, cfg = create_llm_client(config)
+    if is_mock or client is None:
+        return False, "请先填写 API Key。"
+
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": "请只回复：连接成功"}],
+            max_tokens=20,
+            temperature=0,
+        )
+        reply = (response.choices[0].message.content or "").strip()
+        endpoint = cfg.base_url or "OpenAI 默认端点"
+        return True, f"连接成功 · 模型 `{model}` · 端点 `{endpoint}`\n\n测试回复：{reply}"
+    except Exception as exc:
+        return False, f"连接失败：{exc}"
 
 
 def _parse_json(text: str) -> dict[str, Any]:
@@ -326,8 +385,9 @@ class EduAgentOrchestrator:
     未来可映射为 LangGraph StateGraph 的 supervisor 节点。
     """
 
-    def __init__(self) -> None:
-        self.client, self.model, self.is_mock = create_llm_client()
+    def __init__(self, config: LLMConfig | None = None) -> None:
+        self.client, self.model, self.is_mock, self.config = create_llm_client(config)
+        self.base_url = self.config.base_url
 
     def classify_intent(self, question: str) -> dict[str, Any]:
         """Step 1: 意图理解"""
