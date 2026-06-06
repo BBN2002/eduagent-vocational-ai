@@ -1,0 +1,8 @@
+# .env
+.env
+任务说明.tex
+__pycache__/
+*.pyc
+.DS_Store
+.venv/
+venv/
